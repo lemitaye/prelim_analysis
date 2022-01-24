@@ -100,7 +100,7 @@ data <- kids %>%
   left_join(mothers, by = "moth_no") %>% 
   left_join(fathers, by = "fath_no")
 
-write_csv(data, path = "D:/Doc/paper/Census_2011/data.csv")
+write_csv(data, path = "./data.csv")
 # It is time to free-up some memory
 rm(list = c("fathers", "mothers", "kids", "person_tot"))
 
