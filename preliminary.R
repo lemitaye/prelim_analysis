@@ -2,7 +2,7 @@
 # Created on Dec. 16, 2021
 
 rm(list = ls())
-setwd("D:/Doc/paper/Census_2011")
+# setwd("D:/Doc/paper/Census_2011")
 
 library(haven)
 library(tidyverse)
