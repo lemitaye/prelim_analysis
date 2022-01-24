@@ -1,0 +1,489 @@
+---
+title: "Data Preparation and Preliminary Descriptive Analysis"
+author: "Lemi Daba"
+date: "1/19/2022"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+The data and documentations can be downloaded from [here](https://www.datafirst.uct.ac.za/dataportal/index.php/catalog/485/study-description).
+
+## Data Preparation
+
+```{r message=FALSE}
+# Clear working environment and set working directory
+rm(list = ls())
+setwd("D:/Doc/paper/Census_2011")
+
+# Load essential libraries
+library(haven)
+library(tidyverse)
+library(janitor)
+library(lubridate)
+library(AER)
+library(stargazer)
+library(scales)
+theme_set(theme_light())
+```
+
+Read in the data:
+```{r eval=FALSE, include=TRUE}
+person_tot <- read_dta("sa-census-2011-person-all-v1.2.dta")
+```
+
+
+```{r eval=FALSE, include=TRUE}
+person_tot <- person_tot %>%
+  clean_names() %>%
+  # retain household questionnaires only
+  filter(qn_type == 1) %>%
+  mutate(dob = make_date(p01_year, p01_month, p01_day)) %>%
+  # the census was conducted on 9-10 October, 2011
+  mutate(
+    age_month = interval(dob, ymd(20111010)) %/% months(1),
+    age_year = interval(dob, ymd(20111010)) %/% years(1)
+  ) %>%
+  select(sn, f00_nr, dob, f03_sex, age_month, age_year, everything())
+```
+
+We still have 4,337,697 observations.
+
+Prepare kids' and parents' data separately and join them later:
+```{r eval=FALSE, include=TRUE}
+kids <- person_tot %>%
+  # filter those kids whose parents are alive
+  filter(p14_motheralive == 1 & p15_fatheralive == 1) %>%
+  mutate(
+    moth_no = str_c(sn, p14a_motherpnr),
+    fath_no = str_c(sn, p15a_fatherpnr)
+  ) %>%
+  select(
+    # other variables need to be added (not final list)
+    moth_no,
+    fath_no,
+    child_dob = dob,
+    child_sex = f03_sex,
+    child_age_year = age_year,
+    child_age_month = age_month,
+    child_sch_attend = p17_schoolattend,
+    child_educ = p20_edulevel,
+    child_private = p19_edupubpriv,
+    child_pop_group = p05_pop_group
+  )
+
+mothers <- person_tot %>%
+  mutate(moth_no = str_c(sn, f00_nr)) %>%
+  semi_join(kids, by = "moth_no") %>%
+  # other variables need to be added (not final list)
+  select(
+    moth_no,
+    moth_age_year = age_year,
+    moth_age_month = age_month,
+    moth_dob = dob,
+    moth_marital = p03_marital_st,
+    moth_pp_group = p05_pop_group,
+    moth_educ = p20_edulevel,
+    moth_ceb = p32_childeverborn,
+    moth_age_fstbr = p33_agefirstbirth,
+    moth_employ = derp_employ_status,
+    moth_employ_official = derp_employ_status_official,
+    moth_employ_extended = derp_employ_status_expanded
+  )
+
+fathers <- person_tot %>%
+  mutate(fath_no = str_c(sn, f00_nr)) %>%
+  semi_join(kids, by = "fath_no") %>%
+  # other variables need to be added (not final list)
+  select(
+    fath_no,
+    fath_age_year = age_year,
+    fath_age_month = age_month,
+    fath_dob = dob,
+    fath_marital = p03_marital_st,
+    fath_pp_group = p05_pop_group,
+    fath_educ = p20_edulevel,
+    fath_employ = derp_employ_status,
+    fath_employ_official = derp_employ_status_official,
+    fath_employ_extended = derp_employ_status_expanded
+  )
+```
+
+Merge kids' and parents' data:
+```{r eval=FALSE, include=TRUE}
+data <- kids %>%
+  left_join(mothers, by = "moth_no") %>%
+  left_join(fathers, by = "fath_no")
+```
+
+```{r include=FALSE}
+data <- read_csv("data.csv")
+```
+
+Take a look at `data`:
+```{r}
+data
+```
+
+Next, get the dob of first-born and second-born kids
+```{r cache=TRUE}
+firstborn_dob <- data %>%
+  select(moth_no, child_dob) %>%
+  group_by(moth_no) %>%
+  arrange(child_dob, .by_group = TRUE) %>%
+  slice(1) %>%
+  ungroup() %>%
+  rename(firstborn_dob = "child_dob") %>%
+  mutate(firstborn_age = interval(firstborn_dob, ymd(20111010)) %/% years(1))
+
+secondborn_dob <- data %>%
+  select(moth_no, child_dob) %>%
+  group_by(moth_no) %>%
+  arrange(child_dob, .by_group = TRUE) %>%
+  slice(2) %>%
+  ungroup() %>%
+  rename(secondborn_dob = "child_dob") %>%
+  mutate(secondborn_age = interval(secondborn_dob, ymd(20111010)) %/% years(1))
+```
+
+Merge these with `data`:
+```{r data}
+data <- data %>%
+  left_join(firstborn_dob, by = "moth_no") %>%
+  left_join(secondborn_dob, by = "moth_no") %>%
+  filter(firstborn_age <= 18)
+```
+
+Print the updated `data`:
+```{r}
+data
+```
+
+So, `data` now has `r nrow(data)` observations. 
+
+Now, we proceed to getting the 2+ and 3+ samples.
+
+```{r cache=TRUE, dependson=data}
+# Get the 2+ and 3+ sample
+gt2_sample0 <- data %>%
+  filter(firstborn_age %>% between(6, 18)) %>%
+  group_by(moth_no) %>%
+  arrange(child_dob, .by_group = TRUE) %>%
+  mutate(
+    birth_order = row_number(child_dob),
+    no_kids = n()
+  ) %>%
+  ungroup() %>%
+  filter(no_kids >= 2)
+
+gt3_sample0 <- gt2_sample0 %>%
+  filter(no_kids >= 3) %>%
+  filter(secondborn_age %>% between(6, 18))
+```
+
+At this stage, `gt2_sample0` has `r nrow(gt2_sample0)` obs. and `gt3_sample0` has `r nrow(gt3_sample0)` observations.
+
+Next, make a data set with the relevant instruments for the 2+ sample:
+```{r}
+parity_gt2 <- gt2_sample0 %>%
+  select(moth_no, child_dob, birth_order, no_kids, child_sex) %>%
+  filter(birth_order %in% c(1, 2, 3)) %>%
+  pivot_wider(
+    id_cols = moth_no,
+    names_from = birth_order,
+    values_from = c(child_sex, child_dob)
+  ) %>%
+  mutate(
+    boy_1 = case_when(
+      child_sex_1 == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    boy_2 = case_when(
+      child_sex_2 == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    boy_12 = case_when(
+      (child_sex_1 == 1 & child_sex_2 == 1) ~ 1,
+      TRUE ~ 0
+    ),
+    girl_12 = case_when(
+      (child_sex_1 == 2 & child_sex_2 == 2) ~ 1,
+      TRUE ~ 0
+    ),
+    same_sex_12 = boy_12 + girl_12,
+    twins_1 = case_when(
+      (child_dob_1 == child_dob_2) ~ 1,
+      TRUE ~ 0
+    ),
+    twins_2 = case_when(
+      (child_dob_2 == child_dob_3) ~ 1,
+      TRUE ~ 0
+    )
+  ) %>%
+  select(-contains(c("child_sex", "child_dob")))
+```
+
+Do the same for the 3+ sample:
+```{r}
+parity_gt3 <- gt3_sample0 %>%
+  select(moth_no, child_dob, birth_order, no_kids, child_sex) %>%
+  # extend the vector up to 4 to get the 3+ sample
+  filter(birth_order %in% c(1, 2, 3, 4)) %>%
+  pivot_wider(
+    id_cols = moth_no,
+    names_from = birth_order,
+    values_from = c(child_sex, child_dob)
+  ) %>%
+  mutate(
+    boy_1 = case_when(
+      child_sex_1 == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    boy_2 = case_when(
+      child_sex_2 == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    boy_3 = case_when(
+      child_sex_3 == 1 ~ 1,
+      TRUE ~ 0
+    ),
+    boy_12 = case_when(
+      (child_sex_1 == 1 & child_sex_2 == 1) ~ 1,
+      TRUE ~ 0
+    ),
+    girl_12 = case_when(
+      (child_sex_1 == 2 & child_sex_2 == 2) ~ 1,
+      TRUE ~ 0
+    ),
+    same_sex_12 = boy_12 + girl_12,
+    # The following part is unique to the 3+ sample
+    boy_123 = case_when(
+      (child_sex_1 == 1 & child_sex_2 == 1 & child_sex_3 == 1) ~ 1,
+      TRUE ~ 0
+    ),
+    girl_123 = case_when(
+      (child_sex_1 == 2 & child_sex_2 == 2 & child_sex_3 == 2) ~ 1,
+      TRUE ~ 0
+    ),
+    same_sex_123 = boy_123 + girl_123,
+    # and for the twins:
+    twins_1 = case_when(
+      (child_dob_1 == child_dob_2) ~ 1,
+      TRUE ~ 0
+    ),
+    twins_2 = case_when(
+      (child_dob_2 == child_dob_3) ~ 1,
+      TRUE ~ 0
+    ),
+    twins_3 = case_when(
+      (child_dob_3 == child_dob_4) ~ 1,
+      TRUE ~ 0
+    )
+  ) %>%
+  select(-contains(c("child_sex", "child_dob")))
+```
+
+Merge the initial 2+ and 3+ samples with the parity data sets and get rid of observations with missing values to get our analysis samples:
+```{r}
+gt2_analysis_sample <- gt2_sample0 %>%
+  left_join(parity_gt2, by = "moth_no") %>%
+  filter(birth_order == 1) %>%
+  # Filter out twins at first birth (and unrealistic obs.)
+  filter(!(twins_1 == 1), no_kids < 10) %>%
+  mutate(boy = case_when(child_sex == 1 ~ 1, child_sex == 2 ~ 0)) %>%
+  select(
+    moth_no:child_sex, boy, birth_order:twins_2, no_kids,
+    everything(), -(firstborn_dob:secondborn_age)
+  ) %>%
+  filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>%
+  select(-fath_employ, -moth_employ)
+
+# Do the same for the 3+ sample
+gt3_analysis_sample <- gt3_sample0 %>%
+  left_join(parity_gt3, by = "moth_no") %>%
+  filter(birth_order %in% c(1, 2)) %>%
+  filter(!(twins_1 == 1 | twins_2 == 1)) %>%
+  filter(no_kids < 10) %>%
+  mutate(boy = case_when(child_sex == 1 ~ 1, child_sex == 2 ~ 0)) %>%
+  select(
+    moth_no:child_sex, boy, birth_order:twins_2, twins_3, no_kids,
+    everything(), -(firstborn_dob:secondborn_age)
+  ) %>%
+  filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>%
+  select(-fath_employ, -moth_employ)
+```
+
+Let's take a look at the analysis samples:
+```{r}
+gt2_analysis_sample
+```
+
+```{r}
+gt3_analysis_sample
+```
+
+At this stage, `gt2_analysis_sample` has `r nrow(gt2_analysis_sample)` observations and `gt3_analysis_sample` has `r nrow(gt3_analysis_sample)` observations.
+
+Do further cleaning and generate some outcome variabes:
+```{r}
+# Generate dummy for private school attendance and mother's LFP status
+gt2_analysis_sample <- gt2_analysis_sample %>%
+  filter(child_private %in% c(1, 2, 9)) %>%
+  mutate(
+    private_school = case_when(
+      child_private == 2 ~ 1, TRUE ~ 0
+    ),
+
+    moth_lfp_offic = case_when(
+      moth_employ_official %in% c(1, 2) ~ 1,
+      moth_employ_official %in% c(3, 4) ~ 0
+    ),
+
+    moth_lfp_ext = case_when(
+      moth_employ_extended %in% c(1, 2) ~ 1,
+      moth_employ_extended == 3 ~ 0
+    )
+  ) %>%
+  filter(!is.na(moth_employ_official)) %>%
+  mutate(
+    moth_pp_group_fct =
+      case_when(
+        moth_pp_group == 1 ~ "Black African",
+        moth_pp_group == 2 ~ "Coloured",
+        moth_pp_group == 3 ~ "Indian or Asian",
+        moth_pp_group == 4 ~ "White",
+        moth_pp_group == 5 ~ "Other",
+      ) %>% factor()
+  )
+
+# Construct educational attainment variable
+gt2_analysis_sample <- gt2_analysis_sample %>%
+  filter(child_educ %in% 0:12 | child_educ == 98) %>%
+  mutate(
+    child_educ_gen = case_when(
+      as.numeric(child_educ) == 98 ~ -1,
+      TRUE ~ as.numeric(child_educ)
+    )
+  ) %>%
+  group_by(child_age_year, boy) %>%
+  mutate(mean_educ_age_sex = mean(child_educ_gen)) %>%
+  ungroup() %>%
+  mutate(educ_attain = child_educ_gen / mean_educ_age_sex)
+```
+
+Display the final analysis sample:
+
+```{r}
+gt2_analysis_sample
+```
+
+We can see that `gt2_analysis_sample` has `r nrow(gt2_analysis_sample)` observations.
+
+## Preliminary Analysis
+
+Only data from the `gt2_analysis_sample` is used in this preliminary analysis. Since the `gt3_analysis_sample` is a subset of this sample, a symmetric type of analysis will apply. 
+
+### Table of summary statistics
+
+```{r}
+gt2_analysis_sample %>%
+  select(
+    boy, no_kids:same_sex_12, twins_2, child_age_year, educ_attain,
+    private_school, moth_age_year, fath_age_year
+  ) %>%
+  as.data.frame() %>%
+  stargazer(type = "text")
+```
+
+As a prelude to a hetrogeneity analysis, let's look at the proportion of families having a certain number of children by population group.
+
+```{r}
+gt2_analysis_sample %>%
+  count(moth_pp_group_fct, no_kids) %>%
+  # filter(moth_pp_group_fct != "Other") %>%
+  mutate(
+    no_kids = if_else(no_kids %in% 5:9, "5+", as.character(no_kids)),
+    no_kids = factor(no_kids) %>% fct_rev()
+  ) %>%
+  group_by(moth_pp_group_fct) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(no_kids, prop)) +
+  geom_col(mapping = aes(fill = moth_pp_group_fct), position = "dodge") +
+  coord_flip() +
+  scale_y_continuous(label = percent) +
+  labs(
+    title = "Total Number of Children < 18 years old by Population Group",
+    x = "Total Number of Children",
+    y = "Percent",
+    fill = "Mother's Population Group"
+  )
+```
+
+We can also see the first stage effect of the twins instrumnet diaggregated by the mother's population group:
+
+```{r}
+my_sum <- gt2_analysis_sample %>% 
+  mutate(twins_2 = factor(twins_2)) %>% 
+  group_by(twins_2, moth_pp_group_fct) %>% 
+  summarise(
+    n = n(),
+    mean_no_kids = mean(no_kids),
+    sd=sd(no_kids)
+  ) %>% 
+  mutate(se = sd/sqrt(n)) %>% 
+  mutate(ic = se*qt(.975, n-1))
+
+my_sum %>% 
+  filter(moth_pp_group_fct != "Other") %>% 
+  ggplot() +
+  geom_col(aes(twins_2, mean_no_kids), fill = "forestgreen", alpha = 0.7) + 
+  geom_errorbar(aes(x = twins_2, ymin = mean_no_kids - sd,
+                    ymax = mean_no_kids + sd), size = 0.5, width = 0.3) +
+  facet_wrap(~moth_pp_group_fct) + 
+  labs(
+    title = "Twins-2 First-Stage by Mothers' Population Group",
+    x = "Twins in the Second Birth",
+    y = "Average Number of Children"
+  )
+```
+
+
+### First-Stage Regression
+
+```{r}
+m1 <- lm(no_kids ~ same_sex_12, data = gt2_analysis_sample)
+m2 <- lm(no_kids ~ boy_1 + boy_2 + same_sex_12, data = gt2_analysis_sample)
+m3 <- lm(no_kids ~ boy_1 + boy_12 + girl_12, data = gt2_analysis_sample)
+m4 <- lm(no_kids ~ twins_2, data = gt2_analysis_sample)
+stargazer(m1, m2, m3, m4, type = "text", keep.stat = c("n", "rsq"))
+```
+
+In column 1, the same sex dummy is used (i.e., whether the first two births are both boys or both girls). In column 2, the regression controls for the gender of the first two kids. The result is identical to column 1. In column 3, the same sex instrument is disaggregated by gender. As shown, parents are more likely to have an additional child if the first two births are females than if they are males, suggesting sex preference in favor of boys. Finally, column 4 shows that having a twin in the second birth is strongly correlated with a larger family size. But the standard error is relatively larger compared to the other instruments, possibly because of the relatively small number of twin births in the sample (< 1%).
+
+### 2SLS Regression
+
+Here, I run preliminary 2SLS regressions with different outcome variables. First, let's see the effect on educational attainment.
+
+```{r}
+OLS1 <- lm(educ_attain ~ no_kids, data = gt2_analysis_sample)
+IV1 <- ivreg(educ_attain ~ no_kids | twins_2, data = gt2_analysis_sample)
+IV2 <- ivreg(educ_attain ~ no_kids | same_sex_12, data = gt2_analysis_sample)
+IV3 <- ivreg(educ_attain ~ no_kids | boy_12 + girl_12, data = gt2_analysis_sample)
+stargazer(OLS1, IV1, IV2, IV3, type = "text", keep.stat = c("n", "rsq"))
+```
+
+The first column is obtained using OLS, which tells the usual story, that number of kids is negatively related with educational attainment. Comumns 2-4 are IV estimates, where 2 and 3 use variations of the same sex instrument and column 4 uses the twins instrument. All show a consistent result; the number of children does NOT affect educational attainment. 
+
+What about private school attendance? Here is the 2SLS result using private school attendance dummy as an outcome variable.
+
+```{r}
+OLS2 <- lm(private_school ~ no_kids, data = gt2_analysis_sample)
+IV4 <- ivreg(private_school ~ no_kids | twins_2, data = gt2_analysis_sample)
+IV5 <- ivreg(private_school ~ no_kids | same_sex_12, data = gt2_analysis_sample)
+IV6 <- ivreg(private_school ~ no_kids | boy_12 + girl_12, data = gt2_analysis_sample)
+stargazer(OLS2, IV4, IV5, IV6, type = "text", keep.stat = c("n", "rsq"))
+```
