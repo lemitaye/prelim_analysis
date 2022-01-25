@@ -425,7 +425,13 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
              moth_pp_group == 4 ~ "White",
              moth_pp_group == 5 ~ "Other",
            ) %>% factor()
-    )
+    ) %>% 
+  mutate( child_sex = case_when(
+      child_sex == 1 ~ "Male", child_sex == 1 ~ "Female"
+  ) %>% factor() )
+
+# Good idea to save the analysis file:
+write_csv(gt2_analysis_sample, "./gt2_analysis_sample")
   
 # Now, time for 2SLS
  # I think the first two are Wald estimates 
@@ -508,8 +514,9 @@ my_sum %>%
     y = "Average Number of Children"
   )
   
-
-
+gt2_analysis_sample %>% 
+  count(child_age_year, child_sex)
+    
 
 
 
