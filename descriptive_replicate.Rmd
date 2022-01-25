@@ -358,7 +358,10 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
         moth_pp_group == 4 ~ "White",
         moth_pp_group == 5 ~ "Other",
       ) %>% factor()
-  )
+  ) %>% 
+  mutate( child_sex = case_when(
+      child_sex == 1 ~ "Male", child_sex == 2 ~ "Female"
+  ) %>% factor() )
 
 # Construct educational attainment variable
 gt2_analysis_sample <- gt2_analysis_sample %>%
@@ -397,6 +400,24 @@ gt2_analysis_sample %>%
   ) %>%
   as.data.frame() %>%
   stargazer(type = "text")
+```
+### Some Graphs
+
+The following is a box plot of years of schooling for all kids in the sample by age and gender. 
+
+```{r}
+gt2_analysis_sample %>% 
+  mutate(child_age = factor(child_age_year)) %>% 
+  select(child_age, child_sex, child_educ_gen) %>% 
+  ggplot(aes(child_age, child_educ_gen)) +
+  geom_boxplot(aes(fill = child_sex)) +
+  labs(
+    title = "Age and Years of Schooling",
+    x = "Age of Child",
+    y = "Years of Schooling",
+    fill = "Sex",
+    caption = "Note: Years of Schooling is based on author's calculation"
+  )
 ```
 
 As a prelude to a hetrogeneity analysis, let's look at the proportion of families having a certain number of children by population group.

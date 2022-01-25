@@ -427,11 +427,12 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
            ) %>% factor()
     ) %>% 
   mutate( child_sex = case_when(
-      child_sex == 1 ~ "Male", child_sex == 1 ~ "Female"
+      child_sex == 1 ~ "Male", child_sex == 2 ~ "Female"
   ) %>% factor() )
 
 # Good idea to save the analysis file:
 write_csv(gt2_analysis_sample, "./gt2_analysis_sample")
+####
   
 # Now, time for 2SLS
  # I think the first two are Wald estimates 
@@ -513,13 +514,22 @@ my_sum %>%
     x = "Twins in the Second Birth",
     y = "Average Number of Children"
   )
-  
+
 gt2_analysis_sample %>% 
-  count(child_age_year, child_sex)
-    
+  mutate(child_age = factor(child_age_year)) %>% 
+  select(child_age, child_sex, child_educ_gen) %>% 
+  ggplot(aes(child_age, child_educ_gen)) +
+  geom_boxplot(aes(fill = child_sex)) +
+  labs(
+    title = "Age and Years of Schooling",
+    x = "Age of Child",
+    y = "Years of Schooling",
+    fill = "Sex",
+    caption = "Note: Years of Schooling is based on author's calculation"
+  )
 
-
-
+gt2_analysis_sample %>% 
+  count(private_school)
 
 
 
