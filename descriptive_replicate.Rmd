@@ -18,7 +18,7 @@ The data and documentations can be downloaded from [here](https://www.datafirst.
 ```{r message=FALSE}
 # Clear working environment and set working directory
 rm(list = ls())
-setwd("D:/Doc/paper/Census_2011")
+# setwd("D:/Doc/paper/Census_2011")
 
 # Load essential libraries
 library(haven)
