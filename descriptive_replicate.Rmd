@@ -28,6 +28,8 @@ library(lubridate)
 library(AER)
 library(stargazer)
 library(scales)
+library(broom)
+
 theme_set(theme_light())
 ```
 
@@ -395,8 +397,8 @@ Only data from the `gt2_analysis_sample` is used in this preliminary analysis. S
 ```{r}
 gt2_analysis_sample %>%
   select(
-    boy, no_kids:same_sex_12, twins_2, child_age_year, educ_attain,
-    private_school, moth_age_year, fath_age_year
+    boy, no_kids:same_sex_12, twins_2, child_age_year, child_educ_gen,
+    educ_attain, private_school, moth_age_year, fath_age_year
   ) %>%
   as.data.frame() %>%
   stargazer(type = "text")
@@ -470,6 +472,74 @@ my_sum %>%
     x = "Twins in the Second Birth",
     y = "Average Number of Children"
   )
+```
+
+The other outcome variable I intend to explore is private school attendance. The following graph shows the proportion of firstborns attending private school:
+```{r}
+gt2_analysis_sample %>%
+  mutate(no_kids = if_else(no_kids %in% 5:9, "5+", as.character(no_kids)),
+         no_kids = factor(no_kids) ) %>% 
+  count(no_kids, child_sex, private_school) %>% 
+  group_by(no_kids) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(no_kids, prop)) +
+  geom_col(mapping = aes(fill = child_sex), position = "dodge") + 
+  # coord_flip() +
+  scale_y_continuous(label = percent) + 
+  labs(
+    title = "Private School Attendance by Number of Kids and Sex",
+    x = "Total Number of Children",
+    y = "Percent",
+    fill = "Sex"
+  )
+```
+
+I also run a simple linear regression of private school attendance dummy on the same sex dummy, disaggregated by number of children in the family and sex of the firstborn child. This is graphically shown below:
+
+```{r}
+simple_model_twins <- function(tbl) {
+  lm(private_school ~ twins_2, data = tbl)
+}
+
+simple_model_samesex <- function(tbl) {
+  lm(private_school ~ same_sex_12, data = tbl)
+}
+
+get_confs <- function(mod) {
+  confint(mod) %>% 
+    as_tibble()
+}
+
+
+simple_mod_data_samesex <- gt2_analysis_sample %>%
+  mutate(no_kids = if_else(no_kids %in% 5:9, "5+", as.character(no_kids)),
+         no_kids = factor(no_kids, levels = c("2", "3", "4", "5+")) ) %>% 
+  select(private_school, no_kids, child_sex, twins_2, same_sex_12) %>% 
+  group_by(no_kids, child_sex) %>% 
+  nest() %>% 
+  mutate(
+    model = map(data, simple_model_samesex ), 
+    summaries = map(model, tidy), 
+    conf_ints = map(model, get_confs)
+  ) %>% 
+  unnest(c(summaries, conf_ints)) %>% 
+  rename("conf_low" = `2.5 %`, "conf_high" = `97.5 %`) %>% 
+  arrange(no_kids, child_sex)
+  
+simple_mod_data_samesex %>% 
+  filter(term == "same_sex_12") %>% 
+  ggplot(aes(fct_rev(no_kids), estimate)) + 
+  geom_point(color = "red") + 
+  facet_wrap(~ child_sex, scales = "free_y") +
+  geom_errorbar(aes(ymin = conf_low, ymax = conf_high), width = .1 ) +
+  geom_hline(aes(yintercept = 0)) +
+  coord_flip() +
+  labs(
+    title = "Plot of Simple Linear Regression Coefficient",
+    x = "Total Number of Children",
+    y = "Coefficient",
+    caption = "The red dots indicate coefficient estimate and the lines are 95% confidence intervals"
+       )
 ```
 
 

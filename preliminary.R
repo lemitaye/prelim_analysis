@@ -11,6 +11,8 @@ library(lubridate)
 library(AER)
 library(stargazer)
 library(scales)
+library(broom)
+
 theme_set(theme_light())
 
 # Append the two data sets (memory intensive)
@@ -548,14 +550,12 @@ gt2_analysis_sample %>%
 # Reduced form effect on private school attendance using both "same sex" 
 # and "twins_2"
 
-gt2_analysis_sample %>%
-  mutate(no_kids = if_else(no_kids %in% 5:9, "5+", as.character(no_kids)),
-         no_kids = factor(no_kids) ) %>% 
-  count(no_kids, private_school)
+simple_model_twins <- function(tbl) {
+  lm(private_school ~ twins_2, data = tbl)
+}
 
-
-simple_model <- function(tbl) {
-  lm(y ~ x, data = tbl)
+simple_model_samesex <- function(tbl) {
+  lm(private_school ~ same_sex_12, data = tbl)
 }
 
 get_confs <- function(mod) {
@@ -563,67 +563,34 @@ get_confs <- function(mod) {
     as_tibble()
 }
 
-make_simple_mod <- function(group) {
-  
-  data_mod <- data %>% 
-    mutate(log_gdp = log(gdp), 
-           log_pop = log(pop),
-           log_gdppc = log(gdppc)) %>% 
-    select(-pop, -gdp, -gdppc, -flp_15_64)
-  
-  vars <- colnames(data_mod)
-  vars <- vars[5:length(vars)]
-  
-  y <- data_mod[["gini_disp"]]
-  
-  simple_mod_data <- tibble()
-  
-  for (var in vars) {
-    
-    x <- data_mod[[var]]
-    
-    current <- data_mod %>% 
-      mutate(y = y, x = x) %>% 
-      group_by({{ group }}) %>% 
-      nest() %>% 
-      mutate(
-        model = map(data, simple_model ), 
-        summaries = map(model, tidy), 
-        conf_ints = map(model, get_confs)
-      ) %>% 
-      unnest(c(summaries, conf_ints)) %>% 
-      rename("conf_low" = `2.5 %`, "conf_high" = `97.5 %`) %>% 
-      mutate( term = case_when( term == "x" ~ var, TRUE ~ term) )
-    
-    simple_mod_data <- rbind(simple_mod_data, current)
-  }
-  
-  simple_mod_data
-  # assign("simple_mod_data", simple_mod_data, envir = globalenv())
-}
 
-simple_mod_year <- make_simple_mod(year)
-simple_mod_country <- make_simple_mod(country)
-
-
-
-simple_mod_year %>% 
-  filter( !(term %in% c("(Intercept)", "gdp_gr", "log_gdp")) ) %>% 
-  mutate( term = recode( 
-    factor(term),  "corr_idx" = "Corruption", "flp_abv15_ILO" = "Female LFP (%)",  "gdppc_rate" = "GDPPC Growth (%)",
-    "gov_ex" = "Gov't Expend. (%)", "infl_gdp_df" = "Inflation", "log_gdppc" = "Log(GDPPC)", "log_pop" ="Log(Pop)", "pop_gr" =  "Pop. Growth (%)", "school_yrs_mean" = "Mean Yrs. School", "urban_pct" = "% of Urban Pop."
-  )
+simple_mod_data_samesex <- gt2_analysis_sample %>%
+  mutate(no_kids = if_else(no_kids %in% 5:9, "5+", as.character(no_kids)),
+         no_kids = factor(no_kids, levels = c("2", "3", "4", "5+")) ) %>% 
+  select(private_school, no_kids, child_sex, twins_2, same_sex_12) %>% 
+  group_by(no_kids, child_sex) %>% 
+  nest() %>% 
+  mutate(
+    model = map(data, simple_model_samesex ), 
+    summaries = map(model, tidy), 
+    conf_ints = map(model, get_confs)
   ) %>% 
-  ggplot(aes(factor(year), estimate)) + 
+  unnest(c(summaries, conf_ints)) %>% 
+  rename("conf_low" = `2.5 %`, "conf_high" = `97.5 %`) %>% 
+  arrange(no_kids, child_sex)
+  
+simple_mod_data_samesex %>% 
+  filter(term == "same_sex_12") %>% 
+  ggplot(aes(fct_rev(no_kids), estimate)) + 
   geom_point(color = "red") + 
-  facet_wrap(~ term, scales = "free_y") +
+  facet_wrap(~ child_sex, scales = "free_y") +
   geom_errorbar(aes(ymin = conf_low, ymax = conf_high), width = .1 ) +
   geom_hline(aes(yintercept = 0)) +
-  labs(x = "Year", y = "Coefficient", 
-       title = "Figure 4.6: Simple Regression of Gini Index for Each Year",
-       caption = "Regression based on SWIID and WDI databases") +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust=1)) 
-
-
-
+  coord_flip() +
+  labs(
+    title = "Plot of Simple Linear Regression Coefficient",
+    x = "Total Number of Children",
+    y = "Coefficient",
+    caption = "The red dots indicate coefficient estimate and the lines are 95% confidence intervals"
+       )
 
