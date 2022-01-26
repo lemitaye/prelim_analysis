@@ -528,12 +528,30 @@ gt2_analysis_sample %>%
     caption = "Note: Years of Schooling is based on author's calculation"
   )
 
-gt2_analysis_sample %>% 
-  count(private_school)
+gt2_analysis_sample %>%
+  mutate(no_kids = if_else(no_kids %in% 5:9, "5+", as.character(no_kids)),
+         no_kids = factor(no_kids) ) %>% 
+  count(no_kids, child_sex, private_school) %>% 
+  group_by(no_kids) %>% 
+  mutate(prop = n/sum(n)) %>% 
+  ggplot(aes(no_kids, prop)) +
+  geom_col(mapping = aes(fill = child_sex), position = "dodge") + 
+  # coord_flip() +
+  scale_y_continuous(label = percent) + 
+  labs(
+    title = "Private School Attendance by Number of Kids and Sex",
+    x = "Total Number of Children",
+    y = "Percent",
+    fill = "Sex"
+  )
 
+# Reduced form effect on private school attendance using both "same sex" 
+# and "twins_2"
 
-
-
+gt2_analysis_sample %>%
+  mutate(no_kids = if_else(no_kids %in% 5:9, "5+", as.character(no_kids)),
+         no_kids = factor(no_kids) ) %>% 
+  count(no_kids, private_school)
 
 
 
