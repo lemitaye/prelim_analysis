@@ -12,6 +12,7 @@ library(AER)
 library(stargazer)
 library(scales)
 library(broom)
+library(car)
 
 theme_set(theme_light())
 
@@ -375,6 +376,13 @@ m3 <- lm(no_kids ~ boy_1 + boy_12 + girl_12, data = gt2_analysis_sample)
 m4 <- lm(no_kids ~ twins_2, data = gt2_analysis_sample)
 stargazer(m1, m2, m3, m4, type = "text", keep.stat = c("n","rsq"))
 
+# F-tests (suspected weak instruments)
+linearHypothesis(m1, c("same_sex_12"))
+linearHypothesis(m2, c("boy_1", "boy_2", "same_sex_12"))
+linearHypothesis(m3, c("boy_1", "boy_12", "girl_12"))
+linearHypothesis(m4, c("twins_2"))
+
+
 # Strong first-stage. Looks good so far.
 
 # Angrist et al. (2010) cluster the standard errors for the regressions using
@@ -593,4 +601,28 @@ simple_mod_data_samesex %>%
     y = "Coefficient",
     caption = "The red dots indicate coefficient estimate and the lines are 95% confidence intervals"
        )
+
+
+# 2/11/2022
+
+# Run test for weak instruments (probably need to use stata)
+# Need to revise measurement of "educational attainment"
+# Can the school starting age be different in different districts? (see Delpiano, 2006)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
