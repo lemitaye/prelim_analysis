@@ -344,7 +344,16 @@ gt3_analysis_sample <- gt3_sample %>%
   select(-fath_employ,-moth_employ) %>% 
   semi_join(gt2_analysis_sample, by = "moth_no")
 
-# checks:
+# sanity check 
+# semi_join(x, y) keeps all observations in x that have a match in y:
+gt3_analysis_sample %>% 
+  semi_join(gt2_analysis_sample, by = "moth_no")
+
+# anti_join(x, y) drops all observations in x that have a match in y:
+gt3_analysis_sample %>% 
+  anti_join(gt2_analysis_sample, by = "moth_no") 
+
+# other checks:
 gt2_analysis_sample %>% 
   summarise_all( ~sum(is.na(.)) )
 
@@ -355,17 +364,7 @@ gt3_analysis_sample %>%
   count(moth_no) %>% count(n, name = "count") # Brilliant
 
 gt3_analysis_sample %>% 
-  count(birth_order, child_age_year)
-  
-
-# sanity check 
-# semi_join(x, y) keeps all observations in x that have a match in y:
-gt3_analysis_sample %>% 
-  semi_join(gt2_analysis_sample, by = "moth_no")
-
-# anti_join(x, y) drops all observations in x that have a match in y:
-gt3_analysis_sample %>% 
-  anti_join(gt2_analysis_sample, by = "moth_no") 
+  count(birth_order)
 
 
 # Do we want to have only hhs with both the first and second born complete?
@@ -450,7 +449,7 @@ gt3_analysis_sample <- gt3_analysis_sample %>%
 
 # For the rest, join with 2+ sample
 gt3_analysis_sample <- gt3_analysis_sample %>% 
-  left_join(
+  semi_join(
     gt2_analysis_sample %>% 
       select(moth_no, moth_lfp_offic, moth_lfp_ext, moth_pp_group_fct),
     by = "moth_no"
@@ -458,7 +457,8 @@ gt3_analysis_sample <- gt3_analysis_sample %>%
 
 
 # Good idea to save the analysis file:
-write_csv(gt2_analysis_sample, "./gt2_analysis_sample")
+write_csv(gt2_analysis_sample, "./gt2_analysis_sample.csv")
+
 
 
 #### Preliminary analysis ####
