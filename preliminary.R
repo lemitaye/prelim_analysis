@@ -16,6 +16,8 @@ library(car)
 
 theme_set(theme_light())
 
+#### Preliminary ####
+
 # Append the two data sets (memory intensive)
 gc()
 memory.limit(9999999999)
@@ -103,7 +105,6 @@ data <- kids %>%
   left_join(mothers, by = "moth_no") %>% 
   left_join(fathers, by = "fath_no")
 
-write_csv(data, path = "./data.csv")
 # It is time to free-up some memory
 rm(list = c("fathers", "mothers", "kids", "person_tot"))
 
@@ -155,28 +156,12 @@ data <- data %>%
   left_join(secondborn_dob, by = "moth_no") %>% 
   filter(firstborn_age <= 18)
 
-# arrange(): from smallest to largest
-# earlier dates are greater (eg. today() > ymd(20111001) is TRUE)
-# arrange ignores groupings. So need to set .by_group = TRUE)
+# save data
+write_csv(data, path = "./data.csv")
 
-firstborn_dob %>% 
-  arrange(moth_no, child_dob) %>% 
-  rename(firstborn_dob = "child_dob")
 
-# # And for the twins...
-# data %>% 
-#   group_by(moth_no) %>% 
-#   filter( sum (duplicated(child_dob)) > 0 ) %>% 
-#   select(moth_no, child_dob, birth_order) %>% 
-#   View()
-  # count(moth_no) %>% 
-  # ggplot(aes(n)) +
-  # geom_bar()
-  
-# x Need to think how to generate dummies for twin-second birth 
-# x Need to filter mothers with at least two/three children
-# x And then generate "same sex" dummies
-
+#### Load saved data ####
+data <- read_csv("data.csv")
 
 # Get the 2+ and 3+ sample
 gt2_sample0 <- data %>% 
