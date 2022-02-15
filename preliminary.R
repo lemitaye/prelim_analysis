@@ -44,6 +44,7 @@ person_tot %>%
 
 # Siblings are kids who share the same biological mother in a household
 
+# (include child number)
 kids <- person_tot %>% 
   # filter(between(age_year, 6, 18)) %>% # the firstborn could be >18yrs old
   filter(p14_motheralive == 1 & p15_fatheralive == 1) %>%
@@ -309,13 +310,14 @@ rm(list = c("firstborn_dob", "secondborn_dob", "data"))
 
 rm(list = c("parity_gt2", "parity_gt3", "gt2_sample0", "gt3_sample0"))
   
-# Include father's characteristics x
-# Get the 3+ sample x
-# Generate age (preferably in months) x
+# sanity check 
+# semi_join(x, y) keeps all observations in x that have a match in y:
+gt3_sample %>% 
+  semi_join(gt2_sample, by = "moth_no")
 
-# Both father and mother are present in the dataset
-gt2_sample %>% 
-  count(moth_no, fath_no)
+# anti_join(x, y) drops all observations in x that have a match in y:
+gt3_sample %>% 
+  anti_join(gt2_sample, by = "moth_no")
 
 # Three outcomes I am considering:
 # * Highest completed grade (adjusted for age)
@@ -330,7 +332,7 @@ gt2_sample %>%
 # * child's and parents' pop. group (probably only mother's)
 # * province/state of residence
 
-# clean data (count missing values for all vars)
+# clean data (get rid of missing values)
 gt2_sample %>% 
   filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>% 
   select(-fath_employ,-moth_employ) %>% 
@@ -349,6 +351,16 @@ gt3_analysis_sample <- gt3_sample %>%
   filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>%
   select(-fath_employ,-moth_employ) 
 
+# sanity check 
+# semi_join(x, y) keeps all observations in x that have a match in y:
+gt3_analysis_sample %>% 
+  semi_join(gt2_analysis_sample, by = "moth_no")
+
+# anti_join(x, y) drops all observations in x that have a match in y:
+gt3_analysis_sample %>% 
+  anti_join(gt2_analysis_sample, by = "moth_no") 
+
+# Do we want to have only hhs with both the first and second born complete?
 
 ### Generate (mutate) variables
 
@@ -391,6 +403,7 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
       moth_employ_extended == 3 ~ 0) ) %>% 
   filter(!is.na(moth_employ_official))
 
+# Mothers' population group
 gt2_analysis_sample <- gt2_analysis_sample %>% 
   mutate(
     moth_pp_group_fct = 
@@ -405,7 +418,35 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
 
 ## +3 sample
 
+# Dummy for private school attendance & child sex (factor)
+gt3_analysis_sample <- gt3_analysis_sample %>% 
+  # Toggle to include 9 (affects sample size by a lot)
+  filter(child_private %in% c(1, 2, 9)) %>% 
+  mutate(private_school = case_when(
+    child_private == 2 ~ 1, TRUE ~ 0)) %>% 
+  mutate( child_sex = case_when(
+    child_sex == 1 ~ "Male", child_sex == 2 ~ "Female"
+  ) %>% factor() )
 
+# constructing educational attainment variable
+# (There could be outliers for this variable, please check in the future.)
+gt3_analysis_sample <- gt3_analysis_sample %>%  
+  filter(child_educ %in% 0:12 | child_educ == 98) %>% 
+  mutate(
+    child_educ_gen = case_when( as.numeric(child_educ) == 98 ~ -1, 
+                                TRUE ~ as.numeric(child_educ) )) %>% 
+  group_by(child_age_year, boy) %>% 
+  mutate(mean_educ_age_sex = mean(child_educ_gen)) %>% 
+  ungroup() %>% 
+  mutate(educ_attain = child_educ_gen/mean_educ_age_sex) 
+
+# For the rest, join with 2+ sample
+gt3_analysis_sample <- gt3_analysis_sample %>% 
+  left_join(
+    gt2_analysis_sample %>% 
+      select(moth_no, moth_lfp_offic, moth_lfp_ext, moth_pp_group_fct),
+    by = "moth_no"
+  )
 
 
 # Good idea to save the analysis file:
