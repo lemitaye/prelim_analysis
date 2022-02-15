@@ -334,22 +334,30 @@ gt3_sample %>%
 
 # clean data (get rid of missing values)
 gt2_sample %>% 
-  filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>% 
+  filter(!is.na(moth_dob), !is.na(fath_dob)) %>% 
   select(-fath_employ,-moth_employ) %>% 
   summarise_all( ~sum(is.na(.)) )
 
 gt3_sample %>% 
   filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>%
-  select(-fath_employ,-moth_employ) %>% count(twins_3)
+  select(-fath_employ,-moth_employ) %>% 
   summarise_all( ~sum(is.na(.)) )
 
 gt2_analysis_sample <- gt2_sample %>% 
-  filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>% 
+  filter(!is.na(moth_dob)) %>% 
   select(-fath_employ,-moth_employ)
 
 gt3_analysis_sample <- gt3_sample %>% 
-  filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>%
+  filter(!is.na(moth_dob)) %>%
   select(-fath_employ,-moth_employ) 
+
+gt3_sample %>% 
+  filter(!is.na(moth_dob)) %>% 
+  anti_join(
+    gt2_analysis_sample, 
+    by = "moth_no"
+    ) 
+  
 
 # sanity check 
 # semi_join(x, y) keeps all observations in x that have a match in y:
@@ -359,6 +367,7 @@ gt3_analysis_sample %>%
 # anti_join(x, y) drops all observations in x that have a match in y:
 gt3_analysis_sample %>% 
   anti_join(gt2_analysis_sample, by = "moth_no") 
+
 
 # Do we want to have only hhs with both the first and second born complete?
 
