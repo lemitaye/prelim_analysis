@@ -295,7 +295,6 @@ gt2_sample <- gt2_sample0 %>%
   select(moth_no:child_sex, boy, birth_order:twins_2, no_kids,
          everything(), -(firstborn_dob:secondborn_age) ) 
 
-
 # Do the same for the 3+ sample
 gt3_sample <- gt3_sample0 %>% 
   left_join(parity_gt3, by = "moth_no") %>% 
@@ -331,11 +330,7 @@ gt2_sample %>%
 # * child's and parents' pop. group (probably only mother's)
 # * province/state of residence
 
-# Count missing values for all vars.
-gt2_sample %>% 
-  summarise_all( ~sum(is.na(.)) )
-
-# Get the analysis samples
+# clean data (count missing values for all vars)
 gt2_sample %>% 
   filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>% 
   select(-fath_employ,-moth_employ) %>% 
@@ -354,18 +349,38 @@ gt3_analysis_sample <- gt3_sample %>%
   filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>%
   select(-fath_employ,-moth_employ) 
 
-# Next steps:
-# Construct outcome variables and run 2SLS
 
+### Generate (mutate) variables
+
+## 2+ sample
+
+# Dummy for private school attendance & child sex (factor)
 gt2_analysis_sample <- gt2_analysis_sample %>% 
   # Toggle to include 9 (affects sample size by a lot)
   filter(child_private %in% c(1, 2, 9)) %>% 
   mutate(private_school = case_when(
-      child_private == 2 ~ 1, TRUE ~ 0)) 
+      child_private == 2 ~ 1, TRUE ~ 0)) %>% 
+  mutate( child_sex = case_when(
+    child_sex == 1 ~ "Male", child_sex == 2 ~ "Female"
+  ) %>% factor() )
+ 
+# constructing educational attainment variable
+# (There could be outliers for this variable, please check in the future.)
+gt2_analysis_sample <- gt2_analysis_sample %>%  
+  filter(child_educ %in% 0:12 | child_educ == 98) %>% 
+  mutate(
+    child_educ_gen = case_when( as.numeric(child_educ) == 98 ~ -1, 
+                                TRUE ~ as.numeric(child_educ) )) %>% 
+  group_by(child_age_year, boy) %>% 
+  mutate(mean_educ_age_sex = mean(child_educ_gen)) %>% 
+  ungroup() %>% 
+  mutate(educ_attain = child_educ_gen/mean_educ_age_sex) 
+
+# ? (dummy for "lagged behind")
 
 
+# Mothers' LFP
 gt2_analysis_sample <- gt2_analysis_sample %>% 
-  filter(child_private %in% c(1, 2, 9)) %>% 
   mutate(
     moth_lfp_offic = case_when(
       moth_employ_official %in% c(1, 2) ~ 1, 
@@ -376,17 +391,7 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
       moth_employ_extended == 3 ~ 0) ) %>% 
   filter(!is.na(moth_employ_official))
 
-# constructing educational attainment variable
-# (There could be outliers for this variable, please check in the future.)
 gt2_analysis_sample <- gt2_analysis_sample %>% 
-  filter(child_educ %in% 0:12 | child_educ == 98) %>% 
-  mutate(
-    child_educ_gen = case_when( as.numeric(child_educ) == 98 ~ -1, 
-                                 TRUE ~ as.numeric(child_educ) )) %>% 
-  group_by(child_age_year, boy) %>% 
-  mutate(mean_educ_age_sex = mean(child_educ_gen)) %>% 
-  ungroup() %>% 
-  mutate(educ_attain = child_educ_gen/mean_educ_age_sex) %>% 
   mutate(
     moth_pp_group_fct = 
            case_when(
@@ -396,13 +401,16 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
              moth_pp_group == 4 ~ "White",
              moth_pp_group == 5 ~ "Other",
            ) %>% factor()
-    ) %>% 
-  mutate( child_sex = case_when(
-      child_sex == 1 ~ "Male", child_sex == 2 ~ "Female"
-  ) %>% factor() )
+    ) 
+
+## +3 sample
+
+
+
 
 # Good idea to save the analysis file:
 write_csv(gt2_analysis_sample, "./gt2_analysis_sample")
+
 
 #### Preliminary analysis ####
 m1 <- lm(no_kids ~ same_sex_12, data = gt2_analysis_sample)
