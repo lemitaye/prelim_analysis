@@ -333,30 +333,29 @@ gt3_sample %>%
 # * province/state of residence
 
 # clean data (get rid of missing values)
-gt2_sample %>% 
-  filter(!is.na(moth_dob), !is.na(fath_dob)) %>% 
-  select(-fath_employ,-moth_employ) %>% 
-  summarise_all( ~sum(is.na(.)) )
-
-gt3_sample %>% 
-  filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>%
-  select(-fath_employ,-moth_employ) %>% 
-  summarise_all( ~sum(is.na(.)) )
 
 gt2_analysis_sample <- gt2_sample %>% 
-  filter(!is.na(moth_dob)) %>% 
+  filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>% 
   select(-fath_employ,-moth_employ)
 
+# force 3+ to be a sub-sample of 2+
 gt3_analysis_sample <- gt3_sample %>% 
   filter(!is.na(moth_dob)) %>%
-  select(-fath_employ,-moth_employ) 
+  select(-fath_employ,-moth_employ) %>% 
+  semi_join(gt2_analysis_sample, by = "moth_no")
 
-gt3_sample %>% 
-  filter(!is.na(moth_dob)) %>% 
-  anti_join(
-    gt2_analysis_sample, 
-    by = "moth_no"
-    ) 
+# checks:
+gt2_analysis_sample %>% 
+  summarise_all( ~sum(is.na(.)) )
+
+gt3_analysis_sample %>% 
+  summarise_all( ~sum(is.na(.)) )
+
+gt3_analysis_sample %>% 
+  count(moth_no) %>% count(n, name = "count") # Brilliant
+
+gt3_analysis_sample %>% 
+  count(birth_order, child_age_year)
   
 
 # sanity check 
@@ -425,7 +424,7 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
            ) %>% factor()
     ) 
 
-## +3 sample
+## 3+ sample
 
 # Dummy for private school attendance & child sex (factor)
 gt3_analysis_sample <- gt3_analysis_sample %>% 
