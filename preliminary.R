@@ -354,30 +354,6 @@ gt3_analysis_sample <- gt3_sample %>%
   filter(!is.na(moth_dob), !is.na(fath_dob), !is.na(child_private)) %>%
   select(-fath_employ,-moth_employ) 
 
-# Preliminary analysis:
-m1 <- lm(no_kids ~ same_sex_12, data = gt2_analysis_sample)
-m2 <- lm(no_kids ~ boy_1 + boy_2 + same_sex_12, data = gt2_analysis_sample)
-m3 <- lm(no_kids ~ boy_1 + boy_12 + girl_12, data = gt2_analysis_sample)
-m4 <- lm(no_kids ~ twins_2, data = gt2_analysis_sample)
-stargazer(m1, m2, m3, m4, type = "text", keep.stat = c("n","rsq"))
-
-# F-tests (suspected weak instruments)
-linearHypothesis(m1, c("same_sex_12"))
-linearHypothesis(m2, c("boy_1", "boy_2", "same_sex_12"))
-linearHypothesis(m3, c("boy_1", "boy_12", "girl_12"))
-linearHypothesis(m4, c("twins_2"))
-
-
-# Strong first-stage. Looks good so far.
-
-# Angrist et al. (2010) cluster the standard errors for the regressions using
-# the 3+ sample by mohter's ID. (see p. 791)
-m5 <- lm(no_kids ~ same_sex_123 + boy, data = gt3_analysis_sample)
-m6 <- lm(no_kids ~ boy_123 + girl_123 + boy_3:I(1-same_sex_12), 
-         data = gt3_analysis_sample)
-m7 <- lm(no_kids ~ twins_3, data = gt3_analysis_sample)
-stargazer(m5, m6, m7, type = "text", keep.stat = c("n","rsq"))
-
 # Next steps:
 # Construct outcome variables and run 2SLS
 
@@ -427,7 +403,31 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
 
 # Good idea to save the analysis file:
 write_csv(gt2_analysis_sample, "./gt2_analysis_sample")
-####
+
+#### Preliminary analysis ####
+m1 <- lm(no_kids ~ same_sex_12, data = gt2_analysis_sample)
+m2 <- lm(no_kids ~ boy_1 + boy_2 + same_sex_12, data = gt2_analysis_sample)
+m3 <- lm(no_kids ~ boy_1 + boy_12 + girl_12, data = gt2_analysis_sample)
+m4 <- lm(no_kids ~ twins_2, data = gt2_analysis_sample)
+stargazer(m1, m2, m3, m4, type = "text", keep.stat = c("n","rsq"))
+
+# F-tests (suspected weak instruments)
+linearHypothesis(m1, c("same_sex_12"))
+linearHypothesis(m2, c("boy_1", "boy_2", "same_sex_12"))
+linearHypothesis(m3, c("boy_1", "boy_12", "girl_12"))
+linearHypothesis(m4, c("twins_2"))
+
+
+# Strong first-stage. Looks good so far.
+
+# Angrist et al. (2010) cluster the standard errors for the regressions using
+# the 3+ sample by mohter's ID. (see p. 791)
+m5 <- lm(no_kids ~ same_sex_123 + boy, data = gt3_analysis_sample)
+m6 <- lm(no_kids ~ boy_123 + girl_123 + boy_3:I(1-same_sex_12), 
+         data = gt3_analysis_sample)
+m7 <- lm(no_kids ~ twins_3, data = gt3_analysis_sample)
+stargazer(m5, m6, m7, type = "text", keep.stat = c("n","rsq"))
+
   
 # Now, time for 2SLS
  # I think the first two are Wald estimates 
