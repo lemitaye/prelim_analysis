@@ -449,7 +449,7 @@ gt3_analysis_sample <- gt3_analysis_sample %>%
 
 # For the rest, join with 2+ sample
 gt3_analysis_sample <- gt3_analysis_sample %>% 
-  semi_join(
+  semi_join( # d/ce with "left_join()" is only 87 obs.
     gt2_analysis_sample %>% 
       select(moth_no, moth_lfp_offic, moth_lfp_ext, moth_pp_group_fct),
     by = "moth_no"
@@ -458,10 +458,17 @@ gt3_analysis_sample <- gt3_analysis_sample %>%
 
 # Good idea to save the analysis file:
 write_csv(gt2_analysis_sample, "./gt2_analysis_sample.csv")
+write_csv(gt3_analysis_sample, "./gt3_analysis_sample.csv")
 
 
 
 #### Preliminary analysis ####
+
+# Load saved data
+gt2_analysis_sample <- read_csv("gt2_analysis_sample.csv")
+gt3_analysis_sample <- read_csv("gt3_analysis_sample.csv")
+  
+# First regressions
 m1 <- lm(no_kids ~ same_sex_12, data = gt2_analysis_sample)
 m2 <- lm(no_kids ~ boy_1 + boy_2 + same_sex_12, data = gt2_analysis_sample)
 m3 <- lm(no_kids ~ boy_1 + boy_12 + girl_12, data = gt2_analysis_sample)
