@@ -50,28 +50,44 @@ stargazer(m5, m6, m7, type = "text", keep.stat = c("n","rsq"))
 
 
 
-## 2SLS/IV regressions ####
+# 2SLS/IV regressions ####
 
-# 2+ sample:
+## 2+ sample ####
 # (I think the OLS results are Wald estimates) 
 OLS_A1 <- lm(educ_attain ~ no_kids, data = gt2_analysis_sample)
-IV_A1 <- ivreg(educ_attain ~ no_kids | twins_2, data = gt2_analysis_sample)
-IV_A2 <- ivreg(educ_attain ~ no_kids | same_sex_12, data = gt2_analysis_sample)
-IV_A3 <- ivreg(educ_attain ~ no_kids | boy_12 + girl_12, data = gt2_analysis_sample)
-stargazer(OLS_A1, IV_A1, IV_A2, IV_A3, type = "text", keep.stat = c("n","rsq"))
+IV_A1 <- ivreg(educ_attain ~ no_kids | 
+                 twins_2, data = gt2_analysis_sample)
+IV_A2 <- ivreg(educ_attain ~ no_kids | 
+                 same_sex_12, data = gt2_analysis_sample)
+IV_A3 <- ivreg(educ_attain ~ no_kids | 
+                 boy_12 + girl_12, data = gt2_analysis_sample)
+IV_A4 <- ivreg(educ_attain ~ no_kids | 
+                 twins_2 + boy_12 + girl_12, data = gt2_analysis_sample)
+stargazer(OLS_A1, IV_A1, IV_A2, IV_A3, IV_A4, 
+          type = "text", keep.stat = c("n","rsq"))
 
 OLS_A2 <- lm(private_school ~ no_kids, data = gt2_analysis_sample)
-IV_A4 <- ivreg(private_school ~ no_kids | twins_2, data = gt2_analysis_sample)
-IV_A5 <- ivreg(private_school ~ no_kids | same_sex_12, data = gt2_analysis_sample)
-IV_A6 <- ivreg(private_school ~ no_kids | boy_12 + girl_12, data = gt2_analysis_sample)
-stargazer(OLS_A2, IV_A4, IV_A5, IV_A6, type = "text", keep.stat = c("n","rsq"))
+IV_A5 <- ivreg(private_school ~ no_kids | 
+                 twins_2, data = gt2_analysis_sample)
+IV_A6 <- ivreg(private_school ~ no_kids | 
+                 same_sex_12, data = gt2_analysis_sample)
+IV_A7 <- ivreg(private_school ~ no_kids | 
+                 boy_12 + girl_12, data = gt2_analysis_sample)
+IV_A8 <- ivreg(private_school ~ no_kids | 
+                 twins_2 + boy_12 + girl_12, data = gt2_analysis_sample)
+stargazer(OLS_A2, IV_A5, IV_A6, IV_A7, IV_A8, 
+          type = "text", keep.stat = c("n","rsq"))
 
 # Tried both official and extended versions of female LFP
 OLS_A3 <- lm(moth_lfp_ext ~ no_kids, data = gt2_analysis_sample)
-IV_A7 <- ivreg(moth_lfp_ext ~ no_kids | twins_2, data = gt2_analysis_sample)
-IV_A8 <- ivreg(moth_lfp_ext ~ no_kids | same_sex_12, data = gt2_analysis_sample)
-IV_A9 <- ivreg(moth_lfp_ext ~ no_kids | boy_12 + girl_12, data = gt2_analysis_sample)
-stargazer(OLS_A3, IV_A7, IV_A8, IV_A9, type = "text", keep.stat = c("n","rsq"))
+IV_A9 <- ivreg(moth_lfp_ext ~ no_kids | 
+                 twins_2, data = gt2_analysis_sample)
+IV_A10 <- ivreg(moth_lfp_ext ~ no_kids | 
+                  same_sex_12, data = gt2_analysis_sample)
+IV_A11 <- ivreg(moth_lfp_ext ~ no_kids | 
+                  boy_12 + girl_12, data = gt2_analysis_sample)
+stargazer(OLS_A3, IV_A9, IV_A10, IV_A11, 
+          type = "text", keep.stat = c("n","rsq"))
 
 
 # Next steps: do the same for the 3+ sample, construct and include 
@@ -79,21 +95,33 @@ stargazer(OLS_A3, IV_A7, IV_A8, IV_A9, type = "text", keep.stat = c("n","rsq"))
 # Discuss exclusion restrictions
 # Educ-attain and private school need to be revised
 
-# 3+ sample:
+## 3+ sample ####
 
 # Educational attainment
 OLS_B1 <- lm(educ_attain ~ no_kids, data = gt3_analysis_sample)
-IV_B1 <- ivreg(educ_attain ~ no_kids | twins_3, data = gt3_analysis_sample)
-IV_B2 <- ivreg(educ_attain ~ no_kids | same_sex_123, data = gt3_analysis_sample)
-IV_B3 <- ivreg(educ_attain ~ no_kids | boy_123 + girl_123, data = gt3_analysis_sample)
-stargazer(OLS_B1, IV_B1, IV_B2, IV_B3, type = "text", keep.stat = c("n","rsq"))
+IV_B1 <- ivreg(educ_attain ~ no_kids | 
+                 twins_3, data = gt3_analysis_sample)
+IV_B2 <- ivreg(educ_attain ~ no_kids | 
+                 same_sex_123, data = gt3_analysis_sample)
+IV_B3 <- ivreg(educ_attain ~ no_kids | 
+                 boy_123 + girl_123, data = gt3_analysis_sample)
+IV_B4 <- ivreg(educ_attain ~ no_kids | 
+                 twins_3 + boy_123 + girl_123, data = gt3_analysis_sample)
+stargazer(OLS_B1, IV_B1, IV_B2, IV_B3, IV_B4, 
+          type = "text", keep.stat = c("n","rsq"))
 
 # Private school attendance
 OLS_B2 <- lm(private_school ~ no_kids, data = gt3_analysis_sample)
-IV_B4 <- ivreg(private_school ~ no_kids | twins_3, data = gt3_analysis_sample)
-IV_B5 <- ivreg(private_school ~ no_kids | same_sex_123, data = gt3_analysis_sample)
-IV_B6 <- ivreg(private_school ~ no_kids | boy_123 + girl_123, data = gt3_analysis_sample)
-stargazer(OLS_B2, IV_B4, IV_B5, IV_B6, type = "text", keep.stat = c("n","rsq"))
+IV_B5 <- ivreg(private_school ~ no_kids | 
+                 twins_3, data = gt3_analysis_sample)
+IV_B6 <- ivreg(private_school ~ no_kids | 
+                 same_sex_123, data = gt3_analysis_sample)
+IV_B7 <- ivreg(private_school ~ no_kids | 
+                 boy_123 + girl_123, data = gt3_analysis_sample)
+IV_B8 <- ivreg(private_school ~ no_kids | 
+                 twins_3 + boy_123 + girl_123, data = gt3_analysis_sample)
+stargazer(OLS_B2, IV_B5, IV_B6, IV_B7, IV_B8, 
+          type = "text", keep.stat = c("n","rsq"))
 
 # Mothers' LFP (Try both official and extended versions of female LFP)
 OLS_B3 <- lm(moth_lfp_ext ~ no_kids, data = gt3_analysis_sample)
