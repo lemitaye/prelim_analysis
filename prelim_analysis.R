@@ -135,18 +135,16 @@ stargazer(OLS_B3, IV_B7, IV_B8, IV_B9, type = "text", keep.stat = c("n","rsq"))
 
 
 
-# Some graphics ####
+# Some descriptives and graphics ####
 
 # Proportion of number of siblings
-gt2_analysis_sample %>% 
-  count(moth_pp_group, no_kids) %>% 
-  filter(moth_pp_group != 5) %>% 
-  group_by(moth_pp_group) %>% 
-  mutate(prop = n/sum(n)) %>% 
-  ggplot(aes(factor(no_kids), prop)) + 
-  geom_col(mapping = aes(fill = moth_pp_group), position = "dodge") + 
-  # facet_wrap(~moth_pp_group) +
-  scale_y_continuous(label = percent)
+gt2_analysis_sample %>%
+  select(
+    boy, no_kids:same_sex_12, twins_2, child_age_year, child_educ_gen,
+    educ_attain, private_school, moth_age_year, fath_age_year
+  ) %>%
+  as.data.frame() %>%
+  stargazer(type = "text")
 
 
 gt2_analysis_sample %>% 
