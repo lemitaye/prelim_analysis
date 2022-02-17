@@ -160,7 +160,7 @@ data <- data %>%
 write_csv(data, path = "./data.csv")
 
 
-#### Load saved data ####
+# Load saved data ####
 data <- read_csv("data.csv")
 
 # Get the 2+ and 3+ sample
@@ -315,7 +315,7 @@ gt3_sample <- gt3_sample0 %>%
     everything(), -(firstborn_dob:secondborn_age)
   )
 
-rm(list = c("firstborn_dob", "secondborn_dob", "data"))
+# rm(list = c("firstborn_dob", "secondborn_dob", "data"))
 
 rm(list = c("parity_gt2", "parity_gt3", "gt2_sample0", "gt3_sample0"))
 
@@ -379,7 +379,7 @@ gt3_analysis_sample %>%
 
 # Do we want to have only hhs with both the first and second born complete?
 
-### Generate (mutate) variables
+## Generate (mutate) variables ####
 
 ## 2+ sample
 
@@ -400,8 +400,8 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
   filter(child_educ %in% 0:12 | child_educ == 98) %>%
   mutate(
     child_educ_gen = case_when(
-      as.numeric(child_educ) == 98 ~ -1,
-      TRUE ~ as.numeric(child_educ)
+      as.numeric(child_educ) == 98 ~ 1,
+      TRUE ~ as.numeric(child_educ) + 2
     )
   ) %>%
   group_by(child_age_year, boy) %>%
@@ -479,3 +479,45 @@ gt3_analysis_sample <- gt3_analysis_sample %>%
 # Good idea to save the analysis files:
 write_csv(gt2_analysis_sample, "./gt2_analysis_sample.csv")
 write_csv(gt3_analysis_sample, "./gt3_analysis_sample.csv")
+
+
+# Focus in on child education
+gt2_analysis_sample %>% 
+  count(child_educ)
+
+gt2_analysis_sample %>% 
+  filter(child_educ %in% c(0, 98)) %>% 
+  count(child_age_year, child_educ)
+
+# Grade 0 are currently Grade 1 [see p. 63 in sample meta data]
+# 98 are currently Grade 0 (all were attending school)
+
+# Problematic with the zeros in "child_educ_gen"!
+gt2_analysis_sample %>% 
+  group_by(child_educ_gen) %>% 
+  summarise(mean_0 = mean(mean_educ_age_sex),
+            sd_0 = sd(mean_educ_age_sex),
+            mean_1 = mean(educ_attain),
+            sd_1 = sd(educ_attain))
+
+
+gt2_analysis_sample %>% 
+  ggplot(aes(educ_attain)) +
+  geom_histogram()
+
+gt2_analysis_sample %>% 
+  ggplot(aes(factor(child_educ_gen), educ_attain)) +
+  geom_boxplot()
+
+gt2_analysis_sample %>% 
+  filter(child_educ_gen == -1) %>% 
+  select(child_educ_gen, mean_educ_age_sex, educ_attain)
+
+# Tentative solution: add 2 to all grades (so it ranges from 1 to 14)
+
+
+
+
+
+
+
