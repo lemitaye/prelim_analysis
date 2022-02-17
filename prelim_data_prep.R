@@ -386,7 +386,7 @@ gt3_analysis_sample %>%
 # Dummy for private school attendance & child sex (factor)
 gt2_analysis_sample <- gt2_analysis_sample %>%
   # Toggle to include 9 (affects sample size by a lot)
-  filter(child_private %in% c(1, 2, 9)) %>%
+  filter(child_private %in% c(1, 2)) %>%
   mutate(private_school = case_when(
     child_private == 2 ~ 1, TRUE ~ 0
   )) %>%
@@ -444,7 +444,7 @@ gt2_analysis_sample <- gt2_analysis_sample %>%
 # Dummy for private school attendance & child sex (factor)
 gt3_analysis_sample <- gt3_analysis_sample %>%
   # Toggle to include 9 (affects sample size by a lot)
-  filter(child_private %in% c(1, 2, 9)) %>%
+  filter(child_private %in% c(1, 2)) %>%
   mutate(private_school = case_when(
     child_private == 2 ~ 1, TRUE ~ 0
   )) %>%
@@ -458,8 +458,8 @@ gt3_analysis_sample <- gt3_analysis_sample %>%
   filter(child_educ %in% 0:12 | child_educ == 98) %>%
   mutate(
     child_educ_gen = case_when(
-      as.numeric(child_educ) == 98 ~ -1,
-      TRUE ~ as.numeric(child_educ)
+      as.numeric(child_educ) == 98 ~ 1,
+      TRUE ~ as.numeric(child_educ) + 2
     )
   ) %>%
   group_by(child_age_year, boy) %>%
@@ -481,7 +481,7 @@ write_csv(gt2_analysis_sample, "./gt2_analysis_sample.csv")
 write_csv(gt3_analysis_sample, "./gt3_analysis_sample.csv")
 
 
-# Focus in on child education
+# Focus on child education ####
 gt2_analysis_sample %>% 
   count(child_educ)
 
@@ -502,10 +502,12 @@ gt2_analysis_sample %>%
 
 
 gt2_analysis_sample %>% 
+  filter(educ_attain < 2) %>% 
   ggplot(aes(educ_attain)) +
   geom_histogram()
 
 gt2_analysis_sample %>% 
+  filter(educ_attain < 2) %>% 
   ggplot(aes(factor(child_educ_gen), educ_attain)) +
   geom_boxplot()
 
@@ -514,6 +516,7 @@ gt2_analysis_sample %>%
   select(child_educ_gen, mean_educ_age_sex, educ_attain)
 
 # Tentative solution: add 2 to all grades (so it ranges from 1 to 14)
+# Looks much better now.
 
 
 
