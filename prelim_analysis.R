@@ -272,3 +272,58 @@ simple_mod_data_samesex %>%
 # Run test for weak instruments (probably need to use stata)
 # Need to revise measurement of "educational attainment"
 # Can the school starting age be different in different districts? (see Delpiano, 2006)
+
+# For presentation ####
+
+gt2_analysis_sample %>%
+  select(
+    boy, no_kids:same_sex_12, twins_2, child_age_year, child_educ_gen,
+    educ_attain, private_school, moth_age_year, fath_age_year
+  ) %>%
+  as.data.frame() %>%
+  stargazer( # type = "text"
+    out = "D:/MSc_ED/Thesis/SA_2011_Census/outline/tables/descriptive.tex",
+    title = "Table of Summary Statistics"
+  )
+
+gt2_analysis_sample %>% 
+  filter(educ_attain < 2) %>% 
+  ggplot(aes(educ_attain)) +
+  geom_histogram() +
+  labs(
+    title = "Histogram of Educational Attainment Index"
+  )
+
+stargazer(
+  m1, m2, m3, m4, 
+  keep.stat = c("n","rsq"),
+  out = "D:/MSc_ED/Thesis/SA_2011_Census/outline/tables/first_stage.tex",
+  title = "First Stage Regressions"
+  )
+
+stargazer(
+  OLS_A1, IV_A1, IV_A2, IV_A3, IV_A4,
+  keep.stat = c("n","rsq"),
+  out = "D:/MSc_ED/Thesis/SA_2011_Census/outline/tables/iv_educ.tex",
+  title = "Two-Stages Least Squares"
+)
+
+stargazer(
+  OLS_A2, IV_A5, IV_A6, IV_A7, IV_A8, 
+  keep.stat = c("n","rsq"),
+  out = "D:/MSc_ED/Thesis/SA_2011_Census/outline/tables/iv_private.tex",
+  title = "Two-Stages Least Squares",
+  notes = "Column 2 uses the twins2 instrument ",
+  notes.align = "l"
+)
+
+
+
+
+
+
+
+
+
+
+
