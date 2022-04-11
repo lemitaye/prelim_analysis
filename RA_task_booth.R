@@ -115,6 +115,37 @@ change_2007 <- above_25 %>%
   select(-x)
 
 change_2007 %>%
+  filter(scale == "abs") %>% 
   ggplot(aes(year, change, fill = race)) +
   geom_col(position = "dodge") +
-  facet_wrap(~scale, scales = "free_y", nrow = 2)
+  expand_limits(y = 1000) +
+  scale_y_continuous(labels = label_number_si()) 
+
+change_2007 %>%
+  filter(scale == "pct") %>% 
+  ggplot(aes(year, change, fill = race)) +
+  geom_col(position = "dodge") +
+  geom_hline(yintercept = 0) +
+  expand_limits(y = 0.2) +
+  scale_y_continuous(labels = percent) 
+  
+# how to have different scales for different facets? 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
