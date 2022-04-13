@@ -41,6 +41,9 @@ by_race_educ <- summ_by(race, education)
 plot_by <- function(tbl, y = median_wealth, by = race,
                     brks = c("white", "other", "Hispanic", "black"),
                     labs = c("Whites", "Other", "Hispanic", "Black")) {
+  
+  require(ggplot2); require(scales)
+  
   p <- tbl %>%
     ggplot(aes(year, {{ y }}, color = {{ by }}, linetype = {{ by }})) +
     geom_line(size = 0.85) +
