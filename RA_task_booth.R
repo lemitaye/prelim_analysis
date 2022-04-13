@@ -13,6 +13,8 @@ glimpse(data)
 # 1. Please summarize key trends in median total wealth over the last 30 years
 # by race and education using plots and in writing.
 
+
+# Function to summarize by groups:
 summ_by <- function(var1, var2 = NULL) {
   require(matrixStats) 
 
@@ -29,24 +31,17 @@ by_educ <- summ_by(education)
 by_race_educ <- summ_by(race, education)
 
 plot_by <- function(
-  tbl, 
-  by = race,
+  tbl, y = median_wealth, by = race,
   brks = c("white", "other", "Hispanic", "black"),
   labs = c("Whites", "Other", "Hispanic", "Black")
   ) {
   
   p <- tbl %>% 
-    ggplot(aes(year, median_wealth, color = {{by}}, linetype = {{by}})) +
+    ggplot(aes(year, {{y}}, color = {{by}}, linetype = {{by}})) +
     geom_line(size = 0.85) +
     scale_y_continuous(labels = label_number_si()) +
-    scale_color_discrete(
-      breaks = brks,
-      labels = labs
-    ) +
-    scale_linetype_discrete(
-      breaks = brks,
-      labels = labs
-    ) +
+    scale_color_discrete(breaks = brks, labels = labs) +
+    scale_linetype_discrete(breaks = brks, labels = labs) +
     scale_x_continuous(
       # "count()" of "dplyr" is masked by "matrixStats"
       breaks = dplyr::count(data, year) %>% pull(year) %>% .[c(2, 6, 10)]
@@ -55,21 +50,24 @@ plot_by <- function(
     labs(
       x = "Year",
       y = "Median Wealth (2016 dollars)",
-      color = "",
-      linetype = ""
+      color = "", linetype = ""
     )
     
   return(p)
 }
 
-plot_by(by_race)
+# Figure 1
+plot_by(by_race)  
+
+# Figure 2:
 plot_by(
   by_educ, 
-  education, 
+  by = education, 
   brks = c("college degree", "some college", "no college"),
   labs = c("College Degree", "Some College", "No College")
   )
 
+# Figure 3:
 plot_by(by_race_educ) +
   facet_wrap(~education, labeller = as_labeller(
     c(
@@ -79,85 +77,24 @@ plot_by(by_race_educ) +
     )
   ))
 
-# Plots:
-by_race %>%
-  ggplot(aes(year, median_wealth, color = race, linetype = race)) +
-  geom_line(size = 0.85) +
-  scale_y_continuous(labels = label_number_si()) +
-  scale_color_discrete(
-    breaks = c("white", "other", "Hispanic", "black"),
-    labels = c("Whites", "Other", "Hispanic", "Black")
-  ) +
-  scale_linetype_discrete(
-    breaks = c("white", "other", "Hispanic", "black"),
-    labels = c("Whites", "Other", "Hispanic", "Black")
-  ) +
-  scale_x_continuous(
-    breaks = dplyr::count(by_race, year) %>% pull(year) %>% .[c(2, 6, 10)]
-    ) +
-  theme(legend.position = "top") +
-  labs(
-    x = "Year",
-    y = "Median Wealth (2016 dollars)",
-    color = "",
-    linetype = ""
-  )
-
-by_educ %>%
-  ggplot(aes(year, median_wealth, color = education, linetype = education)) +
-  geom_line(size = 0.85) +
-  scale_y_continuous(labels = label_number_si()) +
-  scale_color_discrete(
-    breaks = c("college degree", "some college", "no college"),
-    labels = c("College Degree", "Some College", "No College")
-  ) +
-  scale_linetype_discrete(
-    breaks = c("college degree", "some college", "no college"),
-    labels = c("College Degree", "Some College", "No College")
-  ) +
-  scale_x_continuous(
-    breaks = dplyr::count(data, year) %>% pull(year) %>% .[c(2, 6, 10)]
-  ) +
-  theme(legend.position = "top") +
-  labs(
-    x = "Year",
-    y = "Median Total Wealth (2016 dollars)",
-    color = "",
-    linetype = ""
-  )
 
 
 # We have the expected story: whites and the educated are rich, blacks and the
 # uneducated are poor.
 
-# 2.
+# Figure 4
 data %>%
   filter(race %in% c("white", "black")) %>%
   mutate(wealth_housing = asset_housing - debt_housing) %>%
   group_by(year, race) %>%
   summarise(median_housing = weightedMedian(wealth_housing, weight)) %>%
-  ggplot(aes(year, median_housing, color = race, linetype = race)) +
-  scale_y_continuous(labels = label_number_si()) +
-  geom_line(size = 0.85) +
-  scale_color_discrete(
-    breaks = c("white", "black"),
-    labels = c("Whites", "Blacks")
-  ) +
-  scale_linetype_discrete(
-    breaks = c("white", "black"),
-    labels = c("Whites", "Blacks")
-  ) +
-  scale_x_continuous(
-    breaks = dplyr::count(data, year) %>% pull(year) %>% .[c(2, 6, 10)]
-  ) +
-  theme(legend.position = "top") +
-  labs(
-    x = "Year",
-    y = "Median Housing Wealth (2016 dollars)",
-    color = "",
-    linetype = ""
-  )
-
+  plot_by(
+    by = race, 
+    y = median_housing, 
+    brks = c("white", "black"), 
+    labs = c("Whites", "Blacks")
+    )
+  
 
 # 3. Many households are not homeowners and so your analysis for the prior question includes many zeros
 # for housing wealth. Let’s dig deeper by focusing just on homeowners age 25 or older. Subsetting to
