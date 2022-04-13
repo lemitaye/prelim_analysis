@@ -1,8 +1,9 @@
 
 
 library(tidyverse)
-library(matrixStats)
+library(matrixStats)  # needed to calculate weighted median
 library(scales)
+library(ggpubr)
 theme_set(theme_light())
 
 data <- read_csv("RA_21_22.csv")
@@ -12,12 +13,12 @@ glimpse(data)
 # 1. Please summarize key trends in median total wealth over the last 30 years
 # by race and education using plots and in writing.
 
-summ_by <- function(var) {
-  require(matrixStats) # needed to calculate weighted median
+summ_by <- function(var1, var2 = NULL) {
+  require(matrixStats) 
 
   tbl <- data %>%
     mutate(wealth_total = asset_total - debt_total) %>%
-    group_by(year, {{ var }}) %>%
+    group_by(year, {{ var1 }}, {{ var2 }}) %>%
     summarise(median_wealth = weightedMedian(wealth_total, weight))
 
   return(tbl)
@@ -25,21 +26,104 @@ summ_by <- function(var) {
 
 by_race <- summ_by(race)
 by_educ <- summ_by(education)
+by_race_educ <- summ_by(race, education)
+
+plot_by <- function(
+  tbl, 
+  by = race,
+  brks = c("white", "other", "Hispanic", "black"),
+  labs = c("Whites", "Other", "Hispanic", "Black")
+  ) {
+  
+  p <- tbl %>% 
+    ggplot(aes(year, median_wealth, color = {{by}}, linetype = {{by}})) +
+    geom_line(size = 0.85) +
+    scale_y_continuous(labels = label_number_si()) +
+    scale_color_discrete(
+      breaks = brks,
+      labels = labs
+    ) +
+    scale_linetype_discrete(
+      breaks = brks,
+      labels = labs
+    ) +
+    scale_x_continuous(
+      # "count()" of "dplyr" is masked by "matrixStats"
+      breaks = dplyr::count(data, year) %>% pull(year) %>% .[c(2, 6, 10)]
+    ) +
+    theme(legend.position = "top") +
+    labs(
+      x = "Year",
+      y = "Median Wealth (2016 dollars)",
+      color = "",
+      linetype = ""
+    )
+    
+  return(p)
+}
+
+plot_by(by_race)
+plot_by(
+  by_educ, 
+  education, 
+  brks = c("college degree", "some college", "no college"),
+  labs = c("College Degree", "Some College", "No College")
+  )
+
+plot_by(by_race_educ) +
+  facet_wrap(~education, labeller = as_labeller(
+    c(
+      "college degree" = "College Degree",
+      "some college" = "Some College",
+      "no college" = "No College"
+    )
+  ))
 
 # Plots:
 by_race %>%
   ggplot(aes(year, median_wealth, color = race, linetype = race)) +
-  geom_line()
+  geom_line(size = 0.85) +
+  scale_y_continuous(labels = label_number_si()) +
+  scale_color_discrete(
+    breaks = c("white", "other", "Hispanic", "black"),
+    labels = c("Whites", "Other", "Hispanic", "Black")
+  ) +
+  scale_linetype_discrete(
+    breaks = c("white", "other", "Hispanic", "black"),
+    labels = c("Whites", "Other", "Hispanic", "Black")
+  ) +
+  scale_x_continuous(
+    breaks = dplyr::count(by_race, year) %>% pull(year) %>% .[c(2, 6, 10)]
+    ) +
+  theme(legend.position = "top") +
+  labs(
+    x = "Year",
+    y = "Median Wealth (2016 dollars)",
+    color = "",
+    linetype = ""
+  )
 
 by_educ %>%
   ggplot(aes(year, median_wealth, color = education, linetype = education)) +
-  geom_line() +
+  geom_line(size = 0.85) +
   scale_y_continuous(labels = label_number_si()) +
+  scale_color_discrete(
+    breaks = c("college degree", "some college", "no college"),
+    labels = c("College Degree", "Some College", "No College")
+  ) +
+  scale_linetype_discrete(
+    breaks = c("college degree", "some college", "no college"),
+    labels = c("College Degree", "Some College", "No College")
+  ) +
+  scale_x_continuous(
+    breaks = dplyr::count(data, year) %>% pull(year) %>% .[c(2, 6, 10)]
+  ) +
+  theme(legend.position = "top") +
   labs(
     x = "Year",
     y = "Median Total Wealth (2016 dollars)",
-    color = "Education",
-    linetype = "Education"
+    color = "",
+    linetype = ""
   )
 
 
@@ -53,33 +137,63 @@ data %>%
   group_by(year, race) %>%
   summarise(median_housing = weightedMedian(wealth_housing, weight)) %>%
   ggplot(aes(year, median_housing, color = race, linetype = race)) +
-  geom_line()
+  scale_y_continuous(labels = label_number_si()) +
+  geom_line(size = 0.85) +
+  scale_color_discrete(
+    breaks = c("white", "black"),
+    labels = c("Whites", "Blacks")
+  ) +
+  scale_linetype_discrete(
+    breaks = c("white", "black"),
+    labels = c("Whites", "Blacks")
+  ) +
+  scale_x_continuous(
+    breaks = dplyr::count(data, year) %>% pull(year) %>% .[c(2, 6, 10)]
+  ) +
+  theme(legend.position = "top") +
+  labs(
+    x = "Year",
+    y = "Median Housing Wealth (2016 dollars)",
+    color = "",
+    linetype = ""
+  )
 
 
-# 3.
-above_25 <- data %>%
-  filter(age >= 25, race %in% c("white", "black")) %>%
+# 3. Many households are not homeowners and so your analysis for the prior question includes many zeros
+# for housing wealth. Let’s dig deeper by focusing just on homeowners age 25 or older. Subsetting to
+# homeowners age 25 or older, please summarize trends in median housing and non-housing wealth for
+# black and white households. Which group had the largest loss in housing wealth, where 2007 is defined
+# as the base period? Please answer this question both in dollar terms and in proportional terms.
+
+# Calculate Median Wealth:
+owners_above_25 <- data %>%
   mutate(
     wealth_total = asset_total - debt_total,
     wealth_housing = asset_housing - debt_housing,
     wealth_non_housing = wealth_total - wealth_housing
   ) %>%
+  ## subset: older than 25, blacks and whites and owners of houses
+  filter(age >= 25, race %in% c("white", "black"), wealth_housing > 0) %>%
   group_by(year, race) %>%
   summarise(
     median_housing = weightedMedian(wealth_housing, weight),
     median_non_housing = weightedMedian(wealth_non_housing, weight)
   ) %>%
-  pivot_longer(starts_with("median"), names_to = "wealth", values_to = "median") %>%
+  pivot_longer(
+    starts_with("median"),
+    names_to = "wealth", values_to = "median"
+  ) %>%
   mutate(wealth = str_remove(wealth, "median_"))
 
-above_25 %>%
+# Plot (Figure )
+owners_above_25 %>%
   ggplot(aes(factor(year), median, fill = race)) +
   geom_col(position = "dodge") +
   facet_wrap(~wealth,
-    nrow = 2,
-    labeller = as_labeller(
-      c("housing" = "Housing", "non_housing" = "Non-Housing")
-    )
+             nrow = 2,
+             labeller = as_labeller(
+               c("housing" = "Housing", "non_housing" = "Non-Housing")
+             )
   ) +
   scale_y_continuous(labels = label_number_si()) +
   scale_fill_discrete(
@@ -89,16 +203,13 @@ above_25 %>%
   labs(
     x = "Year",
     y = "Median Wealth (2016 dollars)",
-    fill = "Race",
-    title = "Median Wealth by Type (Housing vs. Non-Housing) and Race"
+    fill = "" # ,
+    # title = "Median Wealth by Type (Housing vs. Non-Housing) and Race"
   )
 
 
-# Which group had the largest loss in housing wealth, where 2007 is defined
-# as the base year? Please, answer this question both in dollar terms and
-# proportional terms.
-
-change_2007 <- above_25 %>%
+# Absolute and Proportional change:
+change_2007 <- owners_above_25 %>%
   filter(year >= 2007, wealth == "housing") %>%
   pivot_wider(names_from = year, values_from = "median") %>%
   mutate(
@@ -114,23 +225,49 @@ change_2007 <- above_25 %>%
   separate(loss, into = c("x", "year", "scale"), sep = "_") %>%
   select(-x)
 
-change_2007 %>%
-  filter(scale == "abs") %>% 
-  ggplot(aes(year, change, fill = race)) +
-  geom_col(position = "dodge") +
-  expand_limits(y = 1000) +
-  scale_y_continuous(labels = label_number_si()) 
-
-change_2007 %>%
-  filter(scale == "pct") %>% 
+# Plot absolute change:
+change_abs <- change_2007 %>%
+  filter(scale == "abs") %>%
   ggplot(aes(year, change, fill = race)) +
   geom_col(position = "dodge") +
   geom_hline(yintercept = 0) +
-  expand_limits(y = 0.2) +
-  scale_y_continuous(labels = percent) 
-  
-# how to have different scales for different facets? 
+  expand_limits(y = 10000) +
+  scale_y_continuous(labels = label_number_si()) +
+  scale_fill_discrete(
+    breaks = c("white", "black"),
+    labels = c("Whites", "Blacks")
+  ) +
+  theme(legend.position = "top") +
+  labs(
+    x = "Year",
+    y = "Median Housing Wealth\n (2016 dollars)",
+    fill = "" 
+  )
 
+# Plot percentage change:
+change_pct <- change_2007 %>%
+  filter(scale == "pct") %>%
+  ggplot(aes(year, change, fill = race)) +
+  geom_col(position = "dodge") +
+  geom_hline(yintercept = 0) +
+  expand_limits(y = c(-0.25, 0.05)) +
+  scale_y_continuous(labels = percent) +
+  scale_fill_discrete(
+    breaks = c("white", "black"),
+    labels = c("Whites", "Blacks")
+  ) +
+  theme(legend.position = "top") +
+  labs(
+    x = "Year",
+    y = "Percent",
+    fill = ""
+  )
+
+# Gather the two plots in the same figure:
+ggarrange(
+  change_abs, change_pct, nrow = 1, common.legend = TRUE, legend = "top"
+)
+  
 
 
 
